@@ -1,20 +1,26 @@
-# Use a Node.js base image suitable for development
-FROM node:18-slim
+# Stage 1: Build the Vue.js application
+FROM node:18-alpine AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock, etc.)
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy the rest of your application's source code
+# Copy the rest of the application source code
 COPY . .
 
-# Expose the port that Vite runs on
-EXPOSE 5173
+# Build the application for production
+RUN npm run build
 
-# The command to start the Vite development server, listening on all interfaces
-CMD ["npm", "run", "dev"]
+# Stage 2: Serve the built application with Nginx
+FROM nginx:1.25-alpine
+
+# Copy the built files from the 'builder' stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80 for Nginx
+EXPOSE 80
+
+# When the container starts, Nginx will serve the files
+CMD ["nginx", "-g", "daemon off;"]

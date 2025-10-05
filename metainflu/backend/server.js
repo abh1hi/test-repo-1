@@ -17,9 +17,9 @@ const port = process.env.PORT || 5000;
 const mongoURI = process.env.MONGO_URI; 
 
 // --- ✅ CORRECTED CORS MIDDLEWARE ---
-// The origin should be the address of the Nginx proxy, which is what the browser sees.
-// In a development environment, you could also make this more flexible.
-const allowedOrigins = ['http://localhost', 'http://localhost:5173'];
+// Added the frontend's actual origin 'http://localhost:8080' to the list of allowed origins.
+// This tells the server to accept requests from your Vue.js development server.
+const allowedOrigins = ['http://localhost', 'http://localhost:5173', 'http://localhost:8080'];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -48,9 +48,11 @@ mongoose.connect(mongoURI, {
   process.exit(1);
 });
 
-// --- Routes ---
-app.use('/auth', authRoutes); // Removed /api prefix as Nginx handles it
-app.use('/forecast', forecastRoutes); // Removed /api prefix
+// --- ✅ CORRECTED ROUTES ---
+// Re-added the '/api' prefix to match the frontend's API calls.
+// The server will now correctly handle requests to '/api/auth' and '/api/forecast'.
+app.use('/api/auth', authRoutes);
+app.use('/api/forecast', forecastRoutes);
 
 // Test protected route
 app.get('/protected', protect, (req, res) => {
@@ -69,3 +71,4 @@ app.use(errorHandler);
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
 });
+

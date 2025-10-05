@@ -1,54 +1,64 @@
 version: '3.8'
 
 services:
-  # AI Demand Forecasting System (Internal Service)
-  ai-demand-backend:
-    build:
-      context: ./backend
-    container_name: ai-demand-backend
-    environment:
-      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
-    networks:
-      - app-network
-
-  # Metainflu Backend
-  metainflu-backend:
+  # Node.js Backend Service
+  node-backend:
     build:
       context: ./metainflu/backend
-    container_name: metainflu-backend
+      dockerfile: Dockerfile
+    container_name: node-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
     environment:
-      - MONGO_URI=${MONGO_URI}
-      - AI_BACKEND_URL=http://ai-demand-backend:8000
+      - NODE_ENV=production
+      # Add other environment variables like database connection strings
+      # - MONGO_URI=mongodb://mongo:27017/metainflu
+    networks:
+      - app-network
+    volumes:
+      - ./metainflu/backend:/app # Optional: for development hot-reloading
+      - /app/node_modules # Ensures container's node_modules are used
+
+  # Python AI/ML Service (assuming code from root /backend is moved)
+  python-service:
+    build:
+      context: ./backend # Uses the code from the root 'backend' folder
+      dockerfile: Dockerfile
+    container_name: python-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
     networks:
       - app-network
 
-  # --- ✅ UPDATED METAINFLU FRONTEND SERVICE ---
-  metainflu-frontend:
+  # Vue.js Frontend Service
+  frontend:
     build:
       context: ./metainflu/frontend/client
-      # Tell Docker Compose to use our new development Dockerfile
-      dockerfile: Dockerfile.dev
-    container_name: metainflu-frontend
-    volumes:
-      # Mount your local source code into the container for hot-reloading
-      - ./metainflu/frontend/client:/app
-      # Use an anonymous volume to prevent your local node_modules from overwriting the one in the container
-      - /app/node_modules
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80" # NGINX in the container runs on port 80
+    depends_on:
+      - node-backend
     networks:
       - app-network
 
-  # Reverse Proxy
+  # NGINX Reverse Proxy
   proxy:
-    image: nginx:stable-alpine
-    container_name: reverse-proxy
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile # Assumes a Dockerfile exists in /proxy
+    container_name: proxy
+    restart: unless-stopped
     ports:
       - "80:80"
-    volumes:
-      - ./proxy/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - ai-demand-backend
-      - metainflu-backend
-      - metainflu-frontend
+      - frontend
+      - node-backend
+      - python-service
     networks:
       - app-network
 
