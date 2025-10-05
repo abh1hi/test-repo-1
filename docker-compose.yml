@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # AI Demand Forecasting System (Internal Service)
+  ai-demand-backend:
+    build:
+      context: ./backend
+    container_name: ai-demand-backend
+    environment:
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+    networks:
+      - app-network
+
+  # Metainflu Backend
+  metainflu-backend:
+    build:
+      context: ./metainflu/backend
+    container_name: metainflu-backend
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - AI_BACKEND_URL=http://ai-demand-backend:8000
+    networks:
+      - app-network
+
+  # --- ✅ UPDATED METAINFLU FRONTEND SERVICE ---
+  metainflu-frontend:
+    build:
+      context: ./metainflu/frontend/client
+      # Tell Docker Compose to use our new development Dockerfile
+      dockerfile: Dockerfile.dev
+    container_name: metainflu-frontend
+    volumes:
+      # Mount your local source code into the container for hot-reloading
+      - ./metainflu/frontend/client:/app
+      # Use an anonymous volume to prevent your local node_modules from overwriting the one in the container
+      - /app/node_modules
+    networks:
+      - app-network
+
+  # Reverse Proxy
+  proxy:
+    image: nginx:stable-alpine
+    container_name: reverse-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - ai-demand-backend
+      - metainflu-backend
+      - metainflu-frontend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

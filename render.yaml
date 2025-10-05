@@ -1,0 +1,39 @@
+services:
+  # AI Demand Forecasting System (Private Service)
+  - type: pserv
+    name: ai-demand-backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: PERPLEXITY_API_KEY
+        sync: false
+
+  # Metainflu Backend
+  - type: web
+    name: metainflu-backend
+    dockerfilePath: ./metainflu/backend/Dockerfile
+    dockerContext: ./metainflu/backend
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: AI_BACKEND_URL
+        fromService:
+          type: pserv
+          name: ai-demand-backend
+          property: url
+
+  # Metainflu Frontend
+  - type: web
+    name: metainflu-frontend
+    plan: free
+    rootDir: ./metainflu/frontend/client
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /api/:path*
+        destination: "https://metainflu-backend.onrender.com/:path*"
+      - type: rewrite
+        source: /*
+        destination: /index.html
